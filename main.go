@@ -119,6 +119,8 @@ type model struct {
 	lastTick      time.Time
 	confirmDelete bool
 	deleteTarget  string
+	sortColumn    [4]int  // Sort column for each table (Dailies, Rolling, Reminders, Glossary)
+	sortAscending [4]bool // Sort direction for each table
 }
 
 // Enhanced styles with better color coding
@@ -147,6 +149,9 @@ var (
 	statusDoneStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Bold(true)  // Green
 	statusPendingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true) // Yellow
 	statusOverdueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true) // Red
+
+	// Zebra striping for table rows
+	altRowStyle = lipgloss.NewStyle().Background(lipgloss.Color("235")) // Light gray background
 
 	// Command styles
 	keyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))  // Blue
@@ -425,46 +430,68 @@ func resetDailyTasks(data *AppData) bool {
 	return resetOccurred
 }
 
-func sortItems(items interface{}, sortBy string) {
-	switch v := items.(type) {
-	case []Daily:
-		sort.Slice(v, func(i, j int) bool {
-			if v[i].Category != v[j].Category {
-				return strings.ToLower(v[i].Category) < strings.ToLower(v[j].Category)
-			}
-			pri := map[string]int{"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-			if pri[v[i].Priority] != pri[v[j].Priority] {
-				return pri[v[i].Priority] < pri[v[j].Priority]
-			}
-			return v[i].Task < v[j].Task
-		})
-	case []RollingTodo:
-		sort.Slice(v, func(i, j int) bool {
-			if v[i].Category != v[j].Category {
-				return strings.ToLower(v[i].Category) < strings.ToLower(v[j].Category)
-			}
-			pri := map[string]int{"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-			if pri[v[i].Priority] != pri[v[j].Priority] {
-				return pri[v[i].Priority] < pri[v[j].Priority]
-			}
-			return v[i].Task < v[j].Task
-		})
-	case []Reminder:
-		sort.Slice(v, func(i, j int) bool {
-			if v[i].Status != v[j].Status {
-				statusOrder := map[string]int{"active": 0, "pending": 1, "completed": 2, "expired": 3}
-				return statusOrder[v[i].Status] < statusOrder[v[j].Status]
-			}
-			return v[i].Reminder < v[j].Reminder
-		})
-	case []GlossaryItem:
-		sort.Slice(v, func(i, j int) bool {
-			if v[i].Lang != v[j].Lang {
-				return v[i].Lang < v[j].Lang
-			}
-			return v[i].Command < v[j].Command
-		})
-	}
+func sortDailies(items []Daily, column int, ascending bool) {
+	pri := map[string]int{"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+	sort.Slice(items, func(i, j int) bool {
+		var less bool
+		switch column {
+		case 0: // Task
+			less = items[i].Task < items[j].Task
+		case 1: // Priority
+			less = pri[items[i].Priority] < pri[items[j].Priority]
+		case 2: // Category
+			less = strings.ToLower(items[i].Category) < strings.ToLower(items[j].Category)
+		case 3: // Streak
+			less = items[i].CurrentStreak < items[j].CurrentStreak
+		default:
+			less = items[i].Task < items[j].Task
+		}
+		if !ascending {
+			return !less
+		}
+		return less
+	})
+}
+
+func sortRollingTodos(items []RollingTodo, column int, ascending bool) {
+	pri := map[string]int{"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+	sort.Slice(items, func(i, j int) bool {
+		var less bool
+		switch column {
+		case 0: // Task
+			less = items[i].Task < items[j].Task
+		case 1: // Priority
+			less = pri[items[i].Priority] < pri[items[j].Priority]
+		case 2: // Category
+			less = strings.ToLower(items[i].Category) < strings.ToLower(items[j].Category)
+		case 3: // Deadline
+			less = items[i].Deadline < items[j].Deadline
+		default:
+			less = items[i].Task < items[j].Task
+		}
+		if !ascending {
+			return !less
+		}
+		return less
+	})
+}
+
+func sortGlossary(items []GlossaryItem, column int, ascending bool) {
+	sort.Slice(items, func(i, j int) bool {
+		var less bool
+		switch column {
+		case 0: // Lang
+			less = items[i].Lang < items[j].Lang
+		case 1: // Command
+			less = items[i].Command < items[j].Command
+		default:
+			less = items[i].Lang < items[j].Lang
+		}
+		if !ascending {
+			return !less
+		}
+		return less
+	})
 }
 
 // Gamification functions
@@ -645,10 +672,12 @@ func giveLoginBonus(data *AppData) (string, bool) {
 
 func initialModel() model {
 	m := model{
-		activeTab:   1,
-		data:        loadData(),
-		statusColor: "86",
-		lastTick:    time.Now(),
+		activeTab:     1,
+		data:          loadData(),
+		statusColor:   "86",
+		lastTick:      time.Now(),
+		sortColumn:    [4]int{1, 1, 0, 0},    // Default sort: Priority for Dailies/Rolling, default for others
+		sortAscending: [4]bool{true, true, true, true}, // All ascending by default
 	}
 
 	// Check for daily task reset on startup
@@ -668,33 +697,49 @@ func initialModel() model {
 	return m
 }
 
+func (m *model) getColumnTitle(baseName string, tableIdx int, columnIdx int) string {
+	if m.sortColumn[tableIdx] == columnIdx {
+		if m.sortAscending[tableIdx] {
+			return baseName + " ▲"
+		}
+		return baseName + " ▼"
+	}
+	return baseName
+}
+
 func (m *model) setupTables() {
+	// Calculate dynamic table height (leave space for header, tabs, status)
+	tableHeight := m.height - 10
+	if tableHeight < 10 {
+		tableHeight = 10
+	}
+
 	// Tab 2: Dailies
 	m.tables[0] = table.New(
 		table.WithColumns([]table.Column{
-			{Title: "Task", Width: 25},
-			{Title: "Priority", Width: 10},
-			{Title: "Category", Width: 12},
-			{Title: "Streak", Width: 12},
+			{Title: m.getColumnTitle("Task", 0, 0), Width: 25},
+			{Title: m.getColumnTitle("Priority", 0, 1), Width: 10},
+			{Title: m.getColumnTitle("Category", 0, 2), Width: 12},
+			{Title: m.getColumnTitle("Streak", 0, 3), Width: 12},
 			{Title: "Best", Width: 8},
 			{Title: "Status", Width: 15},
 		}),
 		table.WithRows(m.dailyRows()),
 		table.WithFocused(true),
-		table.WithHeight(15),
+		table.WithHeight(tableHeight),
 	)
 
 	// Tab 3: Rolling Todos
 	m.tables[1] = table.New(
 		table.WithColumns([]table.Column{
-			{Title: "Task", Width: 40},
-			{Title: "Priority", Width: 10},
-			{Title: "Category", Width: 15},
-			{Title: "Deadline", Width: 15},
+			{Title: m.getColumnTitle("Task", 1, 0), Width: 40},
+			{Title: m.getColumnTitle("Priority", 1, 1), Width: 10},
+			{Title: m.getColumnTitle("Category", 1, 2), Width: 15},
+			{Title: m.getColumnTitle("Deadline", 1, 3), Width: 15},
 		}),
 		table.WithRows(m.rollingRows()),
 		table.WithFocused(true),
-		table.WithHeight(15),
+		table.WithHeight(tableHeight),
 	)
 
 	// Tab 4: Reminders
@@ -706,21 +751,21 @@ func (m *model) setupTables() {
 		}),
 		table.WithRows(m.reminderRows()),
 		table.WithFocused(true),
-		table.WithHeight(15),
+		table.WithHeight(tableHeight),
 	)
 
 	// Tab 5: Glossary
 	m.tables[3] = table.New(
 		table.WithColumns([]table.Column{
-			{Title: "Lang", Width: 8},
-			{Title: "Command", Width: 18},
+			{Title: m.getColumnTitle("Lang", 3, 0), Width: 8},
+			{Title: m.getColumnTitle("Command", 3, 1), Width: 18},
 			{Title: "Usage", Width: 25},
 			{Title: "Example", Width: 25},
 			{Title: "Meaning", Width: 25},
 		}),
 		table.WithRows(m.glossaryRows()),
 		table.WithFocused(true),
-		table.WithHeight(15),
+		table.WithHeight(tableHeight),
 	)
 
 	// Apply modern table styles
@@ -759,15 +804,14 @@ func (m *model) adjustLayout() {
 
 func (m *model) dailyRows() []table.Row {
 	rows := []table.Row{}
-	sortItems(m.data.Dailies, "category")
-	for _, daily := range m.data.Dailies {
+	sortDailies(m.data.Dailies, m.sortColumn[0], m.sortAscending[0])
+	for i, daily := range m.data.Dailies {
 		priority := daily.Priority
 		if priority == "" {
 			priority = "MEDIUM"
 		}
 		priority = strings.ToUpper(priority)
 
-		// Just use plain text for now to test
 		var displayPriority string
 		switch priority {
 		case "HIGH":
@@ -780,12 +824,12 @@ func (m *model) dailyRows() []table.Row {
 			displayPriority = "MEDIUM"
 		}
 
+		// Status: only color the status column, not the whole row
 		status := daily.Status
-		switch status {
-		case "DONE":
-			status = statusDoneStyle.Render(status)
-		default:
-			status = statusOverdueStyle.Render("INCOMPLETE")
+		if status == "DONE" {
+			status = statusDoneStyle.Render("✓ DONE")
+		} else {
+			status = "INCOMPLETE"
 		}
 
 		streakDisplay := fmt.Sprintf("%d days", daily.CurrentStreak)
@@ -793,12 +837,26 @@ func (m *model) dailyRows() []table.Row {
 			streakDisplay = fmt.Sprintf("%d days 🔥", daily.CurrentStreak)
 		}
 
+		// Apply zebra striping to alternating rows
+		task := normalizeText(daily.Task)
+		category := normalizeText(daily.Category)
+		bestStreak := fmt.Sprintf("%d", daily.BestStreak)
+
+		if i%2 == 1 {
+			task = altRowStyle.Render(task)
+			displayPriority = altRowStyle.Render(displayPriority)
+			category = altRowStyle.Render(category)
+			streakDisplay = altRowStyle.Render(streakDisplay)
+			bestStreak = altRowStyle.Render(bestStreak)
+			status = altRowStyle.Render(status)
+		}
+
 		rows = append(rows, table.Row{
-			normalizeText(daily.Task),
+			task,
 			displayPriority,
-			normalizeText(daily.Category),
+			category,
 			streakDisplay,
-			fmt.Sprintf("%d", daily.BestStreak),
+			bestStreak,
 			status,
 		})
 	}
@@ -807,15 +865,14 @@ func (m *model) dailyRows() []table.Row {
 
 func (m *model) rollingRows() []table.Row {
 	rows := []table.Row{}
-	sortItems(m.data.RollingTodos, "category")
-	for _, todo := range m.data.RollingTodos {
+	sortRollingTodos(m.data.RollingTodos, m.sortColumn[1], m.sortAscending[1])
+	for i, todo := range m.data.RollingTodos {
 		priority := todo.Priority
 		if priority == "" {
 			priority = "MEDIUM"
 		}
 		priority = strings.ToUpper(priority)
 
-		// Just use plain text for now to test
 		var displayPriority string
 		switch priority {
 		case "HIGH":
@@ -828,11 +885,23 @@ func (m *model) rollingRows() []table.Row {
 			displayPriority = "MEDIUM"
 		}
 
+		// Apply zebra striping to alternating rows
+		task := normalizeText(todo.Task)
+		category := normalizeText(todo.Category)
+		deadline := todo.Deadline
+
+		if i%2 == 1 {
+			task = altRowStyle.Render(task)
+			displayPriority = altRowStyle.Render(displayPriority)
+			category = altRowStyle.Render(category)
+			deadline = altRowStyle.Render(deadline)
+		}
+
 		rows = append(rows, table.Row{
-			normalizeText(todo.Task),
+			task,
 			displayPriority,
-			normalizeText(todo.Category),
-			todo.Deadline,
+			category,
+			deadline,
 		})
 	}
 	return rows
@@ -840,8 +909,8 @@ func (m *model) rollingRows() []table.Row {
 
 func (m *model) reminderRows() []table.Row {
 	rows := []table.Row{}
-	sortItems(m.data.Reminders, "status")
-	for _, reminder := range m.data.Reminders {
+	// Reminders aren't sortable, just display in order
+	for i, reminder := range m.data.Reminders {
 		// Display countdown/alarm time
 		displayTime := reminder.AlarmOrCountdown
 		if reminder.Status == "paused" && reminder.PausedRemaining > 0 {
@@ -864,9 +933,19 @@ func (m *model) reminderRows() []table.Row {
 			}
 		}
 
+		// Apply zebra striping to alternating rows
+		reminderText := normalizeText(reminder.Reminder)
+		noteText := normalizeText(reminder.Note)
+
+		if i%2 == 1 {
+			reminderText = altRowStyle.Render(reminderText)
+			noteText = altRowStyle.Render(noteText)
+			displayTime = altRowStyle.Render(displayTime)
+		}
+
 		rows = append(rows, table.Row{
-			normalizeText(reminder.Reminder),
-			normalizeText(reminder.Note),
+			reminderText,
+			noteText,
 			displayTime,
 		})
 	}
@@ -875,17 +954,85 @@ func (m *model) reminderRows() []table.Row {
 
 func (m *model) glossaryRows() []table.Row {
 	rows := []table.Row{}
-	sortItems(m.data.Glossary, "lang")
-	for _, item := range m.data.Glossary {
+	sortGlossary(m.data.Glossary, m.sortColumn[3], m.sortAscending[3])
+	for i, item := range m.data.Glossary {
+		// Apply zebra striping to alternating rows
+		lang := normalizeText(item.Lang)
+		command := normalizeText(item.Command)
+		usage := normalizeText(item.Usage)
+		example := normalizeText(item.Example)
+		meaning := normalizeText(item.Meaning)
+
+		if i%2 == 1 {
+			lang = altRowStyle.Render(lang)
+			command = altRowStyle.Render(command)
+			usage = altRowStyle.Render(usage)
+			example = altRowStyle.Render(example)
+			meaning = altRowStyle.Render(meaning)
+		}
+
 		rows = append(rows, table.Row{
-			normalizeText(item.Lang),
-			normalizeText(item.Command),
-			normalizeText(item.Usage),
-			normalizeText(item.Example),
-			normalizeText(item.Meaning),
+			lang,
+			command,
+			usage,
+			example,
+			meaning,
 		})
 	}
 	return rows
+}
+
+func (m *model) cycleSortColumn() {
+	var tableIdx int
+	var maxColumns int
+
+	switch m.activeTab {
+	case 2: // Dailies
+		tableIdx = 0
+		maxColumns = 4 // Task, Priority, Category, Streak
+	case 3: // Rolling
+		tableIdx = 1
+		maxColumns = 4 // Task, Priority, Category, Deadline
+	case 5: // Glossary
+		tableIdx = 3
+		maxColumns = 2 // Lang, Command
+	default:
+		return
+	}
+
+	// Cycle to next column
+	m.sortColumn[tableIdx]++
+	if m.sortColumn[tableIdx] >= maxColumns {
+		m.sortColumn[tableIdx] = 0
+		// Toggle direction when cycling back to first column
+		m.sortAscending[tableIdx] = !m.sortAscending[tableIdx]
+	}
+
+	// Refresh table rows with new sort
+	switch m.activeTab {
+	case 2:
+		m.tables[0].SetRows(m.dailyRows())
+	case 3:
+		m.tables[1].SetRows(m.rollingRows())
+	case 5:
+		m.tables[3].SetRows(m.glossaryRows())
+	}
+
+	// Show status message
+	sortNames := map[int]map[int]string{
+		0: {0: "Task", 1: "Priority", 2: "Category", 3: "Streak"},
+		1: {0: "Task", 1: "Priority", 2: "Category", 3: "Deadline"},
+		3: {0: "Lang", 1: "Command"},
+	}
+
+	direction := "↑"
+	if !m.sortAscending[tableIdx] {
+		direction = "↓"
+	}
+
+	m.statusMsg = fmt.Sprintf("Sorted by: %s %s", sortNames[tableIdx][m.sortColumn[tableIdx]], direction)
+	m.statusColor = "86"
+	m.statusExpiry = time.Now().Add(2 * time.Second)
 }
 
 func (m *model) toggleReminderStatus(action string) {
@@ -1149,6 +1296,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			if m.activeTab == 4 {
 				m.toggleReminderStatus("start")
+			} else if m.activeTab == 2 || m.activeTab == 3 || m.activeTab == 5 {
+				// Cycle sort for Dailies (tab 2), Rolling (tab 3), Glossary (tab 5)
+				m.cycleSortColumn()
 			}
 		case "p":
 			if m.activeTab == 4 {
