@@ -814,7 +814,8 @@ func (m *model) dailyRows() []table.Row {
 		// Status: only color the status column, not the whole row
 		status := daily.Status
 		if status == "DONE" {
-			status = statusDoneStyle.Render("✓ DONE")
+			// Explicitly reset color after rendering to prevent bleed
+			status = statusDoneStyle.Render("✓ DONE") + "\033[0m"
 		} else {
 			status = "INCOMPLETE"
 		}
