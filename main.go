@@ -150,9 +150,6 @@ var (
 	statusPendingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true) // Yellow
 	statusOverdueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true) // Red
 
-	// Zebra striping for table rows
-	altRowStyle = lipgloss.NewStyle().Background(lipgloss.Color("235")) // Light gray background
-
 	// Command styles
 	keyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))  // Blue
 	actionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))  // Green
@@ -765,7 +762,7 @@ func (m *model) setupTables() {
 		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
 		Bold(true).
-		Foreground(lipgloss.Color("86"))
+		Foreground(lipgloss.Color("255")) // White headers
 	s.Selected = s.Selected.
 		Foreground(lipgloss.Color("229")).
 		Background(lipgloss.Color("57")).
@@ -947,15 +944,8 @@ func (m *model) cycleSortColumn() {
 		m.sortAscending[tableIdx] = !m.sortAscending[tableIdx]
 	}
 
-	// Refresh table rows with new sort
-	switch m.activeTab {
-	case 2:
-		m.tables[0].SetRows(m.dailyRows())
-	case 3:
-		m.tables[1].SetRows(m.rollingRows())
-	case 5:
-		m.tables[3].SetRows(m.glossaryRows())
-	}
+	// Rebuild the affected table completely to ensure sort takes effect
+	m.setupTables()
 
 	// Show status message
 	sortNames := map[int]map[int]string{
@@ -971,7 +961,6 @@ func (m *model) cycleSortColumn() {
 
 	m.statusMsg = fmt.Sprintf("Sorted by: %s %s", sortNames[tableIdx][m.sortColumn[tableIdx]], direction)
 	m.statusColor = "86"
-	m.statusExpiry = time.Now().Add(2 * time.Second)
 }
 
 func (m *model) toggleReminderStatus(action string) {
