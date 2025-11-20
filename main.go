@@ -28,6 +28,9 @@ type Daily struct {
 	Deadline      string    `json:"deadline"`
 	Status        string    `json:"status"`
 	LastCompleted time.Time `json:"last_completed"`
+	CurrentStreak int       `json:"current_streak"`
+	BestStreak    int       `json:"best_streak"`
+	CompletedDays []string  `json:"completed_days"` // Store dates in YYYY-MM-DD format
 }
 
 type RollingTodo struct {
@@ -60,18 +63,6 @@ type GlossaryItem struct {
 	Meaning string `json:"meaning"`
 }
 
-type Habit struct {
-	ID            int       `json:"id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	Frequency     string    `json:"frequency"` // "daily", "weekly"
-	CurrentStreak int       `json:"current_streak"`
-	BestStreak    int       `json:"best_streak"`
-	LastCompleted time.Time `json:"last_completed"`
-	CompletedDays []string  `json:"completed_days"` // Store dates in YYYY-MM-DD format
-	Category      string    `json:"category"`
-}
-
 type Achievement struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
@@ -86,18 +77,17 @@ type Gamification struct {
 	Level            int           `json:"level"`
 	DailyStreak      int           `json:"daily_streak"`
 	LastActivityDate time.Time     `json:"last_activity_date"`
+	LastLoginDate    time.Time     `json:"last_login_date"`
 	Achievements     []Achievement `json:"achievements"`
 	TasksCompleted   int           `json:"tasks_completed"`
-	HabitsCompleted  int           `json:"habits_completed"`
 }
 
 type AppData struct {
-	Dailies       []Daily        `json:"dailies"`
-	RollingTodos  []RollingTodo  `json:"rolling_todos"`
-	Reminders     []Reminder     `json:"reminders"`
-	Glossary      []GlossaryItem `json:"glossary"`
-	Habits        []Habit        `json:"habits"`
-	Gamification  Gamification   `json:"gamification"`
+	Dailies      []Daily        `json:"dailies"`
+	RollingTodos []RollingTodo  `json:"rolling_todos"`
+	Reminders    []Reminder     `json:"reminders"`
+	Glossary     []GlossaryItem `json:"glossary"`
+	Gamification Gamification   `json:"gamification"`
 }
 
 type statusMsg struct {
@@ -114,7 +104,7 @@ type notificationMsg struct {
 // Model
 type model struct {
 	activeTab     int
-	tables        [5]table.Model
+	tables        [4]table.Model
 	data          AppData
 	editing       bool
 	editingTab    int
@@ -474,13 +464,6 @@ func sortItems(items interface{}, sortBy string) {
 			}
 			return v[i].Command < v[j].Command
 		})
-	case []Habit:
-		sort.Slice(v, func(i, j int) bool {
-			if v[i].Category != v[j].Category {
-				return strings.ToLower(v[i].Category) < strings.ToLower(v[j].Category)
-			}
-			return v[i].Name < v[j].Name
-		})
 	}
 }
 
@@ -488,14 +471,14 @@ func sortItems(items interface{}, sortBy string) {
 func initializeAchievements() []Achievement {
 	return []Achievement{
 		{ID: "first_task", Name: "First Steps", Description: "Complete your first task", Icon: "🎯", Unlocked: false},
-		{ID: "streak_3", Name: "On Fire!", Description: "Maintain a 3-day streak", Icon: "🔥", Unlocked: false},
-		{ID: "streak_7", Name: "Week Warrior", Description: "Maintain a 7-day streak", Icon: "⚡", Unlocked: false},
-		{ID: "streak_30", Name: "Monthly Master", Description: "Maintain a 30-day streak", Icon: "💪", Unlocked: false},
+		{ID: "login_7", Name: "Consistent Checker", Description: "Check in 7 days in a row", Icon: "📅", Unlocked: false},
+		{ID: "streak_3", Name: "On Fire!", Description: "Get a 3-day task streak", Icon: "🔥", Unlocked: false},
+		{ID: "streak_7", Name: "Week Warrior", Description: "Get a 7-day task streak", Icon: "⚡", Unlocked: false},
+		{ID: "streak_14", Name: "Fortnight Force", Description: "Get a 14-day task streak", Icon: "💫", Unlocked: false},
+		{ID: "streak_30", Name: "Monthly Master", Description: "Get a 30-day task streak", Icon: "💪", Unlocked: false},
 		{ID: "tasks_10", Name: "Taskmaster", Description: "Complete 10 tasks", Icon: "📋", Unlocked: false},
 		{ID: "tasks_50", Name: "Productivity Pro", Description: "Complete 50 tasks", Icon: "🚀", Unlocked: false},
 		{ID: "tasks_100", Name: "Century Club", Description: "Complete 100 tasks", Icon: "💯", Unlocked: false},
-		{ID: "habit_streak_7", Name: "Habit Builder", Description: "Maintain a 7-day habit streak", Icon: "🌱", Unlocked: false},
-		{ID: "habit_streak_30", Name: "Habit Master", Description: "Maintain a 30-day habit streak", Icon: "🌳", Unlocked: false},
 		{ID: "level_5", Name: "Level 5 Hero", Description: "Reach level 5", Icon: "⭐", Unlocked: false},
 		{ID: "level_10", Name: "Elite Achiever", Description: "Reach level 10", Icon: "🏆", Unlocked: false},
 	}
@@ -524,6 +507,14 @@ func awardPoints(data *AppData, points int, reason string) (string, bool) {
 func checkAndUnlockAchievements(data *AppData) []Achievement {
 	unlocked := []Achievement{}
 
+	// Find the max streak across all daily tasks
+	maxTaskStreak := 0
+	for _, daily := range data.Dailies {
+		if daily.CurrentStreak > maxTaskStreak {
+			maxTaskStreak = daily.CurrentStreak
+		}
+	}
+
 	for i := range data.Gamification.Achievements {
 		achievement := &data.Gamification.Achievements[i]
 		if achievement.Unlocked {
@@ -535,32 +526,22 @@ func checkAndUnlockAchievements(data *AppData) []Achievement {
 		switch achievement.ID {
 		case "first_task":
 			shouldUnlock = data.Gamification.TasksCompleted >= 1
-		case "streak_3":
-			shouldUnlock = data.Gamification.DailyStreak >= 3
-		case "streak_7":
+		case "login_7":
 			shouldUnlock = data.Gamification.DailyStreak >= 7
+		case "streak_3":
+			shouldUnlock = maxTaskStreak >= 3
+		case "streak_7":
+			shouldUnlock = maxTaskStreak >= 7
+		case "streak_14":
+			shouldUnlock = maxTaskStreak >= 14
 		case "streak_30":
-			shouldUnlock = data.Gamification.DailyStreak >= 30
+			shouldUnlock = maxTaskStreak >= 30
 		case "tasks_10":
 			shouldUnlock = data.Gamification.TasksCompleted >= 10
 		case "tasks_50":
 			shouldUnlock = data.Gamification.TasksCompleted >= 50
 		case "tasks_100":
 			shouldUnlock = data.Gamification.TasksCompleted >= 100
-		case "habit_streak_7":
-			for _, habit := range data.Habits {
-				if habit.CurrentStreak >= 7 {
-					shouldUnlock = true
-					break
-				}
-			}
-		case "habit_streak_30":
-			for _, habit := range data.Habits {
-				if habit.CurrentStreak >= 30 {
-					shouldUnlock = true
-					break
-				}
-			}
 		case "level_5":
 			shouldUnlock = data.Gamification.Level >= 5
 		case "level_10":
@@ -604,32 +585,62 @@ func updateDailyStreak(data *AppData) {
 	data.Gamification.LastActivityDate = time.Now()
 }
 
-func updateHabitStreak(habit *Habit) {
-	if habit.LastCompleted.IsZero() {
-		return
-	}
-
+func updateTaskStreak(daily *Daily) {
 	today := time.Now().Format("2006-01-02")
-	lastCompleted := habit.LastCompleted.Format("2006-01-02")
 
-	if lastCompleted == today {
-		// Already completed today
+	// Check if already completed today
+	alreadyCompleted := false
+	for _, completedDay := range daily.CompletedDays {
+		if completedDay == today {
+			alreadyCompleted = true
+			break
+		}
+	}
+
+	if alreadyCompleted {
 		return
 	}
 
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	// Mark as completed today
+	daily.CompletedDays = append(daily.CompletedDays, today)
 
-	if lastCompleted == yesterday {
-		// Continue streak
-		habit.CurrentStreak++
+	// Update streak
+	if daily.CurrentStreak == 0 {
+		daily.CurrentStreak = 1
 	} else {
-		// Streak broken, restart
-		habit.CurrentStreak = 1
+		yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+		lastCompleted := ""
+		if !daily.LastCompleted.IsZero() {
+			lastCompleted = daily.LastCompleted.Format("2006-01-02")
+		}
+
+		if lastCompleted == yesterday {
+			daily.CurrentStreak++
+		} else {
+			daily.CurrentStreak = 1
+		}
 	}
 
-	if habit.CurrentStreak > habit.BestStreak {
-		habit.BestStreak = habit.CurrentStreak
+	if daily.CurrentStreak > daily.BestStreak {
+		daily.BestStreak = daily.CurrentStreak
 	}
+}
+
+func giveLoginBonus(data *AppData) (string, bool) {
+	today := time.Now().Format("2006-01-02")
+	lastLogin := ""
+	if !data.Gamification.LastLoginDate.IsZero() {
+		lastLogin = data.Gamification.LastLoginDate.Format("2006-01-02")
+	}
+
+	if lastLogin == today {
+		// Already got bonus today
+		return "", false
+	}
+
+	// Award 5 points for logging in
+	data.Gamification.LastLoginDate = time.Now()
+	return awardPoints(data, 5, "Daily login bonus!")
 }
 
 func initialModel() model {
@@ -645,6 +656,14 @@ func initialModel() model {
 		saveData(m.data)
 	}
 
+	// Give daily login bonus
+	if bonusMsg, gotBonus := giveLoginBonus(&m.data); gotBonus {
+		m.statusMsg = "🎁 " + bonusMsg
+		m.statusColor = "82"
+		m.statusExpiry = time.Now().Add(5 * time.Second)
+		saveData(m.data)
+	}
+
 	m.setupTables()
 	return m
 }
@@ -653,11 +672,12 @@ func (m *model) setupTables() {
 	// Tab 2: Dailies
 	m.tables[0] = table.New(
 		table.WithColumns([]table.Column{
-			{Title: "Task", Width: 30},
+			{Title: "Task", Width: 25},
 			{Title: "Priority", Width: 10},
-			{Title: "Category", Width: 15},
-			{Title: "Deadline", Width: 12},
-			{Title: "Status", Width: 25},
+			{Title: "Category", Width: 12},
+			{Title: "Streak", Width: 12},
+			{Title: "Best", Width: 8},
+			{Title: "Status", Width: 15},
 		}),
 		table.WithRows(m.dailyRows()),
 		table.WithFocused(true),
@@ -699,21 +719,6 @@ func (m *model) setupTables() {
 			{Title: "Meaning", Width: 25},
 		}),
 		table.WithRows(m.glossaryRows()),
-		table.WithFocused(true),
-		table.WithHeight(15),
-	)
-
-	// Tab 6: Habits
-	m.tables[4] = table.New(
-		table.WithColumns([]table.Column{
-			{Title: "Habit", Width: 25},
-			{Title: "Frequency", Width: 10},
-			{Title: "Current Streak", Width: 15},
-			{Title: "Best Streak", Width: 12},
-			{Title: "Last Completed", Width: 20},
-			{Title: "Category", Width: 15},
-		}),
-		table.WithRows(m.habitRows()),
 		table.WithFocused(true),
 		table.WithHeight(15),
 	)
@@ -783,11 +788,17 @@ func (m *model) dailyRows() []table.Row {
 			status = statusOverdueStyle.Render("INCOMPLETE")
 		}
 
+		streakDisplay := fmt.Sprintf("%d days", daily.CurrentStreak)
+		if daily.CurrentStreak > 0 {
+			streakDisplay = fmt.Sprintf("%d days 🔥", daily.CurrentStreak)
+		}
+
 		rows = append(rows, table.Row{
 			normalizeText(daily.Task),
 			displayPriority,
 			normalizeText(daily.Category),
-			daily.Deadline,
+			streakDisplay,
+			fmt.Sprintf("%d", daily.BestStreak),
 			status,
 		})
 	}
@@ -875,107 +886,6 @@ func (m *model) glossaryRows() []table.Row {
 		})
 	}
 	return rows
-}
-
-func (m *model) habitRows() []table.Row {
-	rows := []table.Row{}
-	sortItems(m.data.Habits, "category")
-	for _, habit := range m.data.Habits {
-		lastCompleted := "Never"
-		if !habit.LastCompleted.IsZero() {
-			lastCompleted = habit.LastCompleted.Format("2006-01-02 15:04")
-		}
-
-		streakDisplay := fmt.Sprintf("%d days 🔥", habit.CurrentStreak)
-		if habit.CurrentStreak == 0 {
-			streakDisplay = "0 days"
-		}
-
-		rows = append(rows, table.Row{
-			normalizeText(habit.Name),
-			strings.ToLower(habit.Frequency),
-			streakDisplay,
-			fmt.Sprintf("%d days", habit.BestStreak),
-			lastCompleted,
-			normalizeText(habit.Category),
-		})
-	}
-	return rows
-}
-
-func (m *model) toggleHabitCompletion() {
-	if m.activeTab != 6 || len(m.data.Habits) == 0 {
-		return
-	}
-
-	cursor := m.tables[4].Cursor()
-	if cursor >= len(m.data.Habits) {
-		return
-	}
-
-	habit := &m.data.Habits[cursor]
-	today := time.Now().Format("2006-01-02")
-
-	// Check if already completed today
-	alreadyCompleted := false
-	for _, completedDay := range habit.CompletedDays {
-		if completedDay == today {
-			alreadyCompleted = true
-			break
-		}
-	}
-
-	if alreadyCompleted {
-		m.statusMsg = "⚠️ Habit already completed today!"
-		m.statusColor = "226"
-		m.statusExpiry = time.Now().Add(3 * time.Second)
-		return
-	}
-
-	// Mark as completed
-	habit.CompletedDays = append(habit.CompletedDays, today)
-	habit.LastCompleted = time.Now()
-
-	// Update streak
-	if habit.CurrentStreak == 0 {
-		habit.CurrentStreak = 1
-	} else {
-		yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-		lastCompleted := habit.LastCompleted.AddDate(0, 0, -1).Format("2006-01-02")
-
-		if lastCompleted == yesterday {
-			habit.CurrentStreak++
-		} else {
-			habit.CurrentStreak = 1
-		}
-	}
-
-	if habit.CurrentStreak > habit.BestStreak {
-		habit.BestStreak = habit.CurrentStreak
-	}
-
-	// Award points and update gamification
-	m.data.Gamification.HabitsCompleted++
-	updateDailyStreak(&m.data)
-	pointsMsg, _ := awardPoints(&m.data, 15, fmt.Sprintf("Completed habit: %s", habit.Name))
-
-	// Check for achievements
-	newAchievements := checkAndUnlockAchievements(&m.data)
-	if len(newAchievements) > 0 {
-		achievementNames := []string{}
-		for _, ach := range newAchievements {
-			achievementNames = append(achievementNames, fmt.Sprintf("%s %s", ach.Icon, ach.Name))
-		}
-		m.statusMsg = fmt.Sprintf("🏆 Achievement Unlocked: %s! %s", strings.Join(achievementNames, ", "), pointsMsg)
-		m.statusColor = "226"
-	} else {
-		m.statusMsg = fmt.Sprintf("✅ %s | Streak: %d days! %s", habit.Name, habit.CurrentStreak, pointsMsg)
-		m.statusColor = "82"
-	}
-
-	m.statusExpiry = time.Now().Add(5 * time.Second)
-	m.tables[4].SetRows(m.habitRows())
-	saveData(m.data)
 }
 
 func (m *model) toggleReminderStatus(action string) {
@@ -1075,10 +985,12 @@ func (m *model) toggleCompletion() {
 	current := m.data.Dailies[cursor].Status
 	var newStatus string
 
+	daily := &m.data.Dailies[cursor]
+
 	switch current {
 	case "DONE":
 		newStatus = "INCOMPLETE"
-		m.data.Dailies[cursor].LastCompleted = time.Time{} // Clear completion time
+		daily.LastCompleted = time.Time{} // Clear completion time
 		// Remove points when uncompleting
 		m.data.Gamification.TotalPoints -= 10
 		if m.data.Gamification.TotalPoints < 0 {
@@ -1092,12 +1004,15 @@ func (m *model) toggleCompletion() {
 		m.statusColor = "196"
 	default:
 		newStatus = "DONE"
-		m.data.Dailies[cursor].LastCompleted = time.Now() // Record completion time
+		daily.LastCompleted = time.Now() // Record completion time
+
+		// Update task streak
+		updateTaskStreak(daily)
 
 		// Award points and update gamification
 		m.data.Gamification.TasksCompleted++
 		updateDailyStreak(&m.data)
-		pointsMsg, _ := awardPoints(&m.data, 10, fmt.Sprintf("Completed task: %s", m.data.Dailies[cursor].Task))
+		pointsMsg, _ := awardPoints(&m.data, 10, fmt.Sprintf("Completed task: %s", daily.Task))
 
 		// Check for achievements
 		newAchievements := checkAndUnlockAchievements(&m.data)
@@ -1106,15 +1021,15 @@ func (m *model) toggleCompletion() {
 			for _, ach := range newAchievements {
 				achievementNames = append(achievementNames, fmt.Sprintf("%s %s", ach.Icon, ach.Name))
 			}
-			m.statusMsg = fmt.Sprintf("🏆 Achievement Unlocked: %s! %s", strings.Join(achievementNames, ", "), pointsMsg)
+			m.statusMsg = fmt.Sprintf("🏆 Achievement Unlocked: %s! %s | %d day streak!", strings.Join(achievementNames, ", "), pointsMsg, daily.CurrentStreak)
 			m.statusColor = "226"
 		} else {
-			m.statusMsg = fmt.Sprintf("✅ Task marked as %s! %s", newStatus, pointsMsg)
+			m.statusMsg = fmt.Sprintf("✅ Task marked as %s! %s | %d day streak!", newStatus, pointsMsg, daily.CurrentStreak)
 			m.statusColor = "82"
 		}
 	}
 
-	m.data.Dailies[cursor].Status = newStatus
+	daily.Status = newStatus
 	m.tables[0].SetRows(m.dailyRows())
 	saveData(m.data)
 	m.statusExpiry = time.Now().Add(3 * time.Second)
@@ -1183,30 +1098,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = 4
 		case "5":
 			m.activeTab = 5
-		case "6":
-			m.activeTab = 6
 		case "left":
 			if m.activeTab > 1 {
 				m.activeTab--
 			} else if m.activeTab == 1 {
-				m.activeTab = 6
+				m.activeTab = 5
 			}
 		case "right":
-			if m.activeTab < 6 {
+			if m.activeTab < 5 {
 				m.activeTab++
-			} else if m.activeTab == 6 {
+			} else if m.activeTab == 5 {
 				m.activeTab = 1
 			}
 		case "up", "k":
-			if m.activeTab > 1 && m.activeTab < 7 {
+			if m.activeTab > 1 && m.activeTab < 6 {
 				m.tables[m.activeTab-2], _ = m.tables[m.activeTab-2].Update(msg)
 			}
 		case "down", "j":
-			if m.activeTab > 1 && m.activeTab < 7 {
+			if m.activeTab > 1 && m.activeTab < 6 {
 				m.tables[m.activeTab-2], _ = m.tables[m.activeTab-2].Update(msg)
 			}
 		case "e":
-			if m.activeTab > 1 && m.activeTab < 7 {
+			if m.activeTab > 1 && m.activeTab < 6 {
 				m.startEditing()
 			}
 		case "n":
@@ -1216,15 +1129,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.statusMsg = "Delete cancelled"
 				m.statusColor = "86"
 				m.statusExpiry = time.Now().Add(2 * time.Second)
-			} else if m.activeTab > 1 && m.activeTab < 7 {
+			} else if m.activeTab > 1 && m.activeTab < 6 {
 				m.addNew()
 			}
 		case "a":
-			if m.activeTab > 1 && m.activeTab < 7 {
+			if m.activeTab > 1 && m.activeTab < 6 {
 				m.addNew()
 			}
 		case "d", "delete":
-			if m.activeTab > 1 && m.activeTab < 7 && !m.confirmDelete {
+			if m.activeTab > 1 && m.activeTab < 6 && !m.confirmDelete {
 				m.confirmDeleteSelected()
 			}
 		case "y":
@@ -1246,11 +1159,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.toggleReminderStatus("reset")
 			}
 		case " ", "enter":
-			// Toggle completion for dailies and habits
+			// Toggle completion for dailies
 			if m.activeTab == 2 {
 				m.toggleCompletion()
-			} else if m.activeTab == 6 {
-				m.toggleHabitCompletion()
 			}
 
 		}
@@ -1359,18 +1270,6 @@ func (m *model) startEditing() {
 			m.inputs[4] = textinput.New()
 			m.inputs[4].SetValue(item.Meaning)
 		}
-	case 6: // Habits
-		if m.editingRow < len(m.data.Habits) {
-			habit := m.data.Habits[m.editingRow]
-			m.inputs = make([]textinput.Model, 3)
-			m.inputs[0] = textinput.New()
-			m.inputs[0].SetValue(habit.Name)
-			m.inputs[0].Focus()
-			m.inputs[1] = textinput.New()
-			m.inputs[1].SetValue(habit.Frequency)
-			m.inputs[2] = textinput.New()
-			m.inputs[2].SetValue(habit.Category)
-		}
 	}
 }
 
@@ -1401,12 +1300,6 @@ func (m *model) addNew() {
 		m.inputs[0].Focus()
 	case 5: // Glossary
 		m.inputs = make([]textinput.Model, 5)
-		for i := range m.inputs {
-			m.inputs[i] = textinput.New()
-		}
-		m.inputs[0].Focus()
-	case 6: // Habits
-		m.inputs = make([]textinput.Model, 3)
 		for i := range m.inputs {
 			m.inputs[i] = textinput.New()
 		}
@@ -1512,24 +1405,6 @@ func (m *model) saveEdit() {
 			m.data.Glossary[m.editingRow].Meaning = normalizeText(m.inputs[4].Value())
 		}
 		m.tables[3].SetRows(m.glossaryRows())
-	case 6: // Habits
-		if m.editingRow == -1 {
-			newHabit := Habit{
-				ID:            len(m.data.Habits) + 1,
-				Name:          normalizeText(m.inputs[0].Value()),
-				Frequency:     strings.ToLower(m.inputs[1].Value()),
-				Category:      normalizeText(m.inputs[2].Value()),
-				CurrentStreak: 0,
-				BestStreak:    0,
-				CompletedDays: []string{},
-			}
-			m.data.Habits = append(m.data.Habits, newHabit)
-		} else {
-			m.data.Habits[m.editingRow].Name = normalizeText(m.inputs[0].Value())
-			m.data.Habits[m.editingRow].Frequency = strings.ToLower(m.inputs[1].Value())
-			m.data.Habits[m.editingRow].Category = normalizeText(m.inputs[2].Value())
-		}
-		m.tables[4].SetRows(m.habitRows())
 	}
 
 	saveData(m.data)
@@ -1555,10 +1430,6 @@ func (m *model) confirmDeleteSelected() {
 	case 5: // Glossary
 		if cursor < len(m.data.Glossary) {
 			itemName = m.data.Glossary[cursor].Command
-		}
-	case 6: // Habits
-		if cursor < len(m.data.Habits) {
-			itemName = m.data.Habits[cursor].Name
 		}
 	}
 
@@ -1608,15 +1479,6 @@ func (m *model) deleteSelected() {
 			m.statusColor = "196"
 			m.statusExpiry = time.Now().Add(3 * time.Second)
 		}
-	case 6: // Habits
-		if cursor < len(m.data.Habits) {
-			habitName := m.data.Habits[cursor].Name
-			m.data.Habits = append(m.data.Habits[:cursor], m.data.Habits[cursor+1:]...)
-			m.tables[4].SetRows(m.habitRows())
-			m.statusMsg = fmt.Sprintf("🗑️ Deleted: %s", habitName)
-			m.statusColor = "196"
-			m.statusExpiry = time.Now().Add(3 * time.Second)
-		}
 	}
 
 	saveData(m.data)
@@ -1632,7 +1494,7 @@ func (m model) View() string {
 
 	// Tab headers
 	tabs := []string{}
-	tabNames := []string{"[1] Home", "[2] Dailies", "[3] Rolling", "[4] Reminders", "[5] Glossary", "[6] Habits"}
+	tabNames := []string{"[1] Home", "[2] Dailies", "[3] Rolling", "[4] Reminders", "[5] Glossary"}
 
 	for i, name := range tabNames {
 		if i+1 == m.activeTab {
@@ -1662,13 +1524,11 @@ func (m model) View() string {
 
 		// Task Stats
 		summary += statusDoneStyle.Render("📊 Your Progress") + "\n"
-		summary += fmt.Sprintf("  Daily Tasks: %d total, %d completed\n", totalDailies, completedDailies)
+		summary += fmt.Sprintf("  Daily Tasks: %d total, %d completed today\n", totalDailies, completedDailies)
 		summary += fmt.Sprintf("  Rolling Todos: %d items\n", len(m.data.RollingTodos))
 		summary += fmt.Sprintf("  Reminders: %d active\n", len(m.data.Reminders))
 		summary += fmt.Sprintf("  Glossary: %d entries\n", len(m.data.Glossary))
-		summary += fmt.Sprintf("  Habits tracked: %d\n", len(m.data.Habits))
-		summary += fmt.Sprintf("  Total tasks completed: %d\n", m.data.Gamification.TasksCompleted)
-		summary += fmt.Sprintf("  Total habits completed: %d\n", m.data.Gamification.HabitsCompleted)
+		summary += fmt.Sprintf("  Total tasks completed all-time: %d\n", m.data.Gamification.TasksCompleted)
 
 		// Achievements
 		unlockedAchievements := 0
@@ -1692,12 +1552,18 @@ func (m model) View() string {
 			}
 		}
 
-		// Habit Streaks
-		if len(m.data.Habits) > 0 {
-			summary += "\n" + statusDoneStyle.Render("🌱 Habit Streaks") + "\n"
-			for _, habit := range m.data.Habits {
-				if habit.CurrentStreak > 0 {
-					summary += fmt.Sprintf("  %s: %d days 🔥\n", habit.Name, habit.CurrentStreak)
+		// Task Streaks
+		tasksWithStreaks := 0
+		for _, daily := range m.data.Dailies {
+			if daily.CurrentStreak > 0 {
+				tasksWithStreaks++
+			}
+		}
+		if tasksWithStreaks > 0 {
+			summary += "\n" + statusDoneStyle.Render("🔥 Active Task Streaks") + "\n"
+			for _, daily := range m.data.Dailies {
+				if daily.CurrentStreak > 0 {
+					summary += fmt.Sprintf("  %s: %d days 🔥 (best: %d)\n", daily.Task, daily.CurrentStreak, daily.BestStreak)
 				}
 			}
 		}
@@ -1801,9 +1667,6 @@ func (m model) View() string {
 			commands = append(commands, keyStyle.Render("p")+": "+actionStyle.Render("pause"))
 			commands = append(commands, keyStyle.Render("r")+": "+actionStyle.Render("reset"))
 		}
-		if m.activeTab == 6 {
-			commands = append(commands, keyStyle.Render("space/enter")+": "+actionStyle.Render("check-in habit"))
-		}
 	}
 	commands = append(commands, keyStyle.Render("q")+": "+actionStyle.Render("quit"))
 
@@ -1844,8 +1707,6 @@ func (m model) editView() string {
 		labels = []string{"Reminder:", "Note:", "Alarm/Countdown:"}
 	case 5: // Glossary
 		labels = []string{"Lang:", "Command:", "Usage:", "Example:", "Meaning:"}
-	case 6: // Habits
-		labels = []string{"Habit Name:", "Frequency (daily/weekly):", "Category:"}
 	}
 
 	for i, input := range m.inputs {
@@ -1883,15 +1744,14 @@ func loadData() AppData {
 		RollingTodos: []RollingTodo{},
 		Reminders:    []Reminder{},
 		Glossary:     []GlossaryItem{},
-		Habits:       []Habit{},
 		Gamification: Gamification{
 			TotalPoints:      0,
 			Level:            1,
 			DailyStreak:      0,
 			LastActivityDate: time.Time{},
+			LastLoginDate:    time.Time{},
 			Achievements:     initializeAchievements(),
 			TasksCompleted:   0,
-			HabitsCompleted:  0,
 		},
 	}
 
