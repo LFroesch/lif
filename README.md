@@ -1,14 +1,35 @@
 # lif - Lucas is Forgetful
 
-A terminal user interface (TUI) application for managing daily tasks, reminders, rolling todos, and a command glossary. Perfect for those moments when you need a digital second brain to keep track of everything.
+A gamified terminal user interface (TUI) application for managing daily tasks, habits, reminders, rolling todos, and a command glossary. Perfect for forgetful minds who want to build productive habits while earning points, unlocking achievements, and maintaining streaks!
 
 ## Features
+
+### 🎮 Gamification System
+- **Points & Levels**: Earn points for completing tasks and habits
+  - Daily tasks: 10 points
+  - Habits: 15 points
+  - Level up every 100 points!
+- **Streaks**: Track your daily consistency streak
+- **Achievements**: Unlock 11 different achievements
+  - First Steps, On Fire!, Week Warrior, Monthly Master
+  - Taskmaster, Productivity Pro, Century Club
+  - Habit Builder, Habit Master, Level 5 Hero, Elite Achiever
+- **Progress Dashboard**: See your stats, level, points, and streaks at a glance
+
+### 🌱 Habit Tracking
+- Create daily or weekly habits
+- Track current streak and best streak
+- Check-in habits with space/enter
+- View last completion time
+- Organize by category
+- Visual streak indicators with 🔥
 
 ### 📋 Daily Tasks
 - Create recurring daily tasks that reset at 3 AM
 - Track completion status with visual indicators
 - Organize by priority (HIGH/MEDIUM/LOW) and category
 - Set deadlines and monitor progress
+- Earn points for completing tasks!
 
 ### 🔄 Rolling Todos
 - Persistent todo items that don't reset daily
@@ -49,7 +70,13 @@ go build -o lif main.go
 ## Usage
 
 ### Navigation
-- **Numbers 1-5**: Switch between tabs
+- **Numbers 1-6**: Switch between tabs
+  - 1: Home (Dashboard with gamification stats)
+  - 2: Daily Tasks
+  - 3: Rolling Todos
+  - 4: Reminders
+  - 5: Glossary
+  - 6: Habits
 - **Left/Right arrows**: Navigate tabs
 - **Up/Down arrows** or **j/k**: Navigate within tables
 
@@ -61,14 +88,31 @@ go build -o lif main.go
 
 ### Tab-Specific Controls
 
+#### Home (Tab 1)
+- View your gamification stats:
+  - Current level and total points
+  - Daily activity streak
+  - Tasks and habits completed
+  - Unlocked achievements
+  - Active habit streaks
+
 #### Daily Tasks (Tab 2)
 - **Space** or **Enter**: Toggle task completion
 - Tasks automatically reset to incomplete at 3 AM daily
+- Earn 10 points per task completed!
 
 #### Reminders (Tab 4)
 - **s**: Start/resume reminder
 - **p**: Pause active reminder
 - **r**: Reset reminder to original time
+
+#### Habits (Tab 6)
+- **Space** or **Enter**: Check-in/complete habit for today
+- **e**: Edit habit details
+- **n** or **a**: Add new habit
+- **d**: Delete habit
+- Earn 15 points per habit completed!
+- Build streaks by completing habits daily
 
 ### Time Formats
 
@@ -115,13 +159,14 @@ Configuration is automatically saved to:
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `1-5` | Switch tabs | Global |
+| `1-6` | Switch tabs | Global |
 | `←/→` | Navigate tabs | Global |
 | `↑/↓` or `j/k` | Navigate items | Tables |
 | `e` | Edit selected | Tables |
 | `n/a` | Add new item | Tables |
 | `d` | Delete item | Tables |
 | `Space/Enter` | Toggle completion | Daily Tasks |
+| `Space/Enter` | Check-in habit | Habits |
 | `s` | Start/resume | Reminders |
 | `p` | Pause | Reminders |
 | `r` | Reset | Reminders |
