@@ -1,35 +1,31 @@
 # lif - Lucas is Forgetful
 
-A gamified terminal user interface (TUI) application for managing daily tasks, habits, reminders, rolling todos, and a command glossary. Perfect for forgetful minds who want to build productive habits while earning points, unlocking achievements, and maintaining streaks!
+A gamified terminal user interface (TUI) application for managing daily tasks, reminders, rolling todos, and a command glossary. Perfect for forgetful minds who want to build consistent habits through daily tasks while earning points, unlocking achievements, and maintaining streaks!
 
 ## Features
 
 ### 🎮 Gamification System
-- **Points & Levels**: Earn points for completing tasks and habits
-  - Daily tasks: 10 points
-  - Habits: 15 points
+- **Points & Levels**: Earn points and level up!
+  - Daily tasks: 10 points each
+  - Daily login bonus: 5 points
   - Level up every 100 points!
-- **Streaks**: Track your daily consistency streak
+- **Streaks**: Track your daily login streak
 - **Achievements**: Unlock 11 different achievements
-  - First Steps, On Fire!, Week Warrior, Monthly Master
-  - Taskmaster, Productivity Pro, Century Club
-  - Habit Builder, Habit Master, Level 5 Hero, Elite Achiever
+  - First Steps, Consistent Checker (7-day login)
+  - On Fire! (3-day task streak), Week Warrior (7-day)
+  - Fortnight Force (14-day), Monthly Master (30-day)
+  - Taskmaster (10 tasks), Productivity Pro (50), Century Club (100)
+  - Level 5 Hero, Elite Achiever (Level 10)
 - **Progress Dashboard**: See your stats, level, points, and streaks at a glance
 
-### 🌱 Habit Tracking
-- Create daily or weekly habits
-- Track current streak and best streak
-- Check-in habits with space/enter
-- View last completion time
-- Organize by category
-- Visual streak indicators with 🔥
-
-### 📋 Daily Tasks
+### 📋 Daily Tasks (Your Habits!)
 - Create recurring daily tasks that reset at 3 AM
-- Track completion status with visual indicators
+- Build consistency with **streak tracking** - complete tasks daily to build streaks!
+- Track current streak and best streak for each task
+- Visual streak indicators with 🔥
 - Organize by priority (HIGH/MEDIUM/LOW) and category
 - Set deadlines and monitor progress
-- Earn points for completing tasks!
+- Earn 10 points for completing tasks!
 
 ### 🔄 Rolling Todos
 - Persistent todo items that don't reset daily
@@ -70,13 +66,12 @@ go build -o lif main.go
 ## Usage
 
 ### Navigation
-- **Numbers 1-6**: Switch between tabs
-  - 1: Home (Dashboard with gamification stats)
-  - 2: Daily Tasks
+- **Numbers 1-5**: Switch between tabs
+  - 1: Home (Dashboard with gamification stats & streaks)
+  - 2: Daily Tasks (with streak tracking!)
   - 3: Rolling Todos
   - 4: Reminders
   - 5: Glossary
-  - 6: Habits
 - **Left/Right arrows**: Navigate tabs
 - **Up/Down arrows** or **j/k**: Navigate within tables
 
@@ -90,29 +85,23 @@ go build -o lif main.go
 
 #### Home (Tab 1)
 - View your gamification stats:
-  - Current level and total points
-  - Daily activity streak
-  - Tasks and habits completed
+  - Current level, total points, and login streak
+  - Daily activity summary
+  - Tasks completed
   - Unlocked achievements
-  - Active habit streaks
+  - Active task streaks
 
 #### Daily Tasks (Tab 2)
 - **Space** or **Enter**: Toggle task completion
 - Tasks automatically reset to incomplete at 3 AM daily
-- Earn 10 points per task completed!
+- Complete tasks daily to build streaks!
+- Earn 10 points per task completed
+- View current streak and best streak for each task
 
 #### Reminders (Tab 4)
 - **s**: Start/resume reminder
 - **p**: Pause active reminder
 - **r**: Reset reminder to original time
-
-#### Habits (Tab 6)
-- **Space** or **Enter**: Check-in/complete habit for today
-- **e**: Edit habit details
-- **n** or **a**: Add new habit
-- **d**: Delete habit
-- Earn 15 points per habit completed!
-- Build streaks by completing habits daily
 
 ### Time Formats
 
@@ -159,14 +148,13 @@ Configuration is automatically saved to:
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `1-6` | Switch tabs | Global |
+| `1-5` | Switch tabs | Global |
 | `←/→` | Navigate tabs | Global |
 | `↑/↓` or `j/k` | Navigate items | Tables |
 | `e` | Edit selected | Tables |
 | `n/a` | Add new item | Tables |
 | `d` | Delete item | Tables |
-| `Space/Enter` | Toggle completion | Daily Tasks |
-| `Space/Enter` | Check-in habit | Habits |
+| `Space/Enter` | Toggle completion (builds streaks!) | Daily Tasks |
 | `s` | Start/resume | Reminders |
 | `p` | Pause | Reminders |
 | `r` | Reset | Reminders |
