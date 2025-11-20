@@ -435,7 +435,15 @@ func sortDailies(items []Daily, column int, ascending bool) {
 		case 0: // Task
 			less = items[i].Task < items[j].Task
 		case 1: // Priority
-			less = pri[items[i].Priority] < pri[items[j].Priority]
+			iPri := strings.ToUpper(items[i].Priority)
+			jPri := strings.ToUpper(items[j].Priority)
+			if iPri == "" {
+				iPri = "MEDIUM"
+			}
+			if jPri == "" {
+				jPri = "MEDIUM"
+			}
+			less = pri[iPri] < pri[jPri]
 		case 2: // Category
 			less = strings.ToLower(items[i].Category) < strings.ToLower(items[j].Category)
 		case 3: // Streak
@@ -458,7 +466,15 @@ func sortRollingTodos(items []RollingTodo, column int, ascending bool) {
 		case 0: // Task
 			less = items[i].Task < items[j].Task
 		case 1: // Priority
-			less = pri[items[i].Priority] < pri[items[j].Priority]
+			iPri := strings.ToUpper(items[i].Priority)
+			jPri := strings.ToUpper(items[j].Priority)
+			if iPri == "" {
+				iPri = "MEDIUM"
+			}
+			if jPri == "" {
+				jPri = "MEDIUM"
+			}
+			less = pri[iPri] < pri[jPri]
 		case 2: // Category
 			less = strings.ToLower(items[i].Category) < strings.ToLower(items[j].Category)
 		case 3: // Deadline
