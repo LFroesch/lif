@@ -40,11 +40,13 @@ A gamified terminal user interface (TUI) application for managing daily tasks, r
 - System notifications with sound alerts
 - Cross-platform notification support (Linux, macOS, Windows, WSL)
 
-### 📚 Command Glossary
-- Store frequently used commands and their meanings
+### 📚 Command Reference
+- **Pre-populated with 50+ common commands** for git, docker, npm, curl, bash, and Go
+- **Live search functionality** - press `/` to quickly find commands
+- Store your own custom commands and snippets
 - Organize by programming language or category
-- Quick reference with usage examples
-- Perfect for remembering complex CLI commands
+- Quick reference with usage examples and meanings
+- Perfect for forgetful devs who need a quick `man` page alternative
 
 ## Installation
 
@@ -71,7 +73,7 @@ go build -o lif main.go
   - 2: Daily Tasks (with streak tracking!)
   - 3: Rolling Todos
   - 4: Reminders
-  - 5: Glossary
+  - 5: Reference (Command lookup with search)
 - **Left/Right arrows**: Navigate tabs
 - **Up/Down arrows** or **j/k**: Navigate within tables
 
@@ -102,6 +104,13 @@ go build -o lif main.go
 - **s**: Start/resume reminder
 - **p**: Pause active reminder
 - **r**: Reset reminder to original time
+
+#### Reference (Tab 5)
+- **/**: Activate search mode
+- **ESC**: Clear search and return to browsing
+- **s**: Sort by language or command
+- Search across all fields (language, command, usage, example, meaning)
+- Pre-populated with common git, docker, npm, curl, bash, and Go commands
 
 ### Time Formats
 
@@ -155,9 +164,11 @@ Configuration is automatically saved to:
 | `n/a` | Add new item | Tables |
 | `d` | Delete item | Tables |
 | `Space/Enter` | Toggle completion (builds streaks!) | Daily Tasks |
-| `s` | Start/resume | Reminders |
+| `s` | Start/resume / Sort | Reminders / Reference |
 | `p` | Pause | Reminders |
 | `r` | Reset | Reminders |
+| `/` | Search | Reference |
+| `ESC` | Clear search | Reference (when searching) |
 | `q` | Quit | Global |
 
 ## Dependencies
