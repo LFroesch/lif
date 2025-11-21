@@ -54,7 +54,7 @@ type Reminder struct {
 	PausedRemaining  time.Duration `json:"paused_remaining"`
 }
 
-type GlossaryItem struct {
+type ReferenceItem struct {
 	ID      int    `json:"id"`
 	Lang    string `json:"lang"`
 	Command string `json:"command"`
@@ -83,11 +83,11 @@ type Gamification struct {
 }
 
 type AppData struct {
-	Dailies      []Daily        `json:"dailies"`
-	RollingTodos []RollingTodo  `json:"rolling_todos"`
-	Reminders    []Reminder     `json:"reminders"`
-	Glossary     []GlossaryItem `json:"glossary"`
-	Gamification Gamification   `json:"gamification"`
+	Dailies      []Daily         `json:"dailies"`
+	RollingTodos []RollingTodo   `json:"rolling_todos"`
+	Reminders    []Reminder      `json:"reminders"`
+	Reference    []ReferenceItem `json:"reference"`
+	Gamification Gamification    `json:"gamification"`
 }
 
 type statusMsg struct {
@@ -103,24 +103,27 @@ type notificationMsg struct {
 
 // Model
 type model struct {
-	activeTab     int
-	tables        [4]table.Model
-	data          AppData
-	editing       bool
-	editingTab    int
-	editingRow    int
-	editingField  int
-	inputs        []textinput.Model
-	statusMsg     string
-	statusColor   string
-	statusExpiry  time.Time
-	width         int
-	height        int
-	lastTick      time.Time
-	confirmDelete bool
-	deleteTarget  string
-	sortColumn    [4]int  // Sort column for each table (Dailies, Rolling, Reminders, Glossary)
-	sortAscending [4]bool // Sort direction for each table
+	activeTab      int
+	tables         [4]table.Model
+	data           AppData
+	editing        bool
+	editingTab     int
+	editingRow     int
+	editingField   int
+	inputs         []textinput.Model
+	statusMsg      string
+	statusColor    string
+	statusExpiry   time.Time
+	width          int
+	height         int
+	lastTick       time.Time
+	confirmDelete  bool
+	deleteTarget   string
+	sortColumn     [4]int  // Sort column for each table (Dailies, Rolling, Reminders, Reference)
+	sortAscending  [4]bool // Sort direction for each table
+	searchInput    textinput.Model
+	searchActive   bool
+	filteredRef    []ReferenceItem // Filtered reference items based on search
 }
 
 // Enhanced styles with better color coding
@@ -489,7 +492,7 @@ func sortRollingTodos(items []RollingTodo, column int, ascending bool) {
 	})
 }
 
-func sortGlossary(items []GlossaryItem, column int, ascending bool) {
+func sortReference(items []ReferenceItem, column int, ascending bool) {
 	sort.Slice(items, func(i, j int) bool {
 		var less bool
 		switch column {
@@ -521,6 +524,76 @@ func initializeAchievements() []Achievement {
 		{ID: "tasks_100", Name: "Century Club", Description: "Complete 100 tasks", Icon: "💯", Unlocked: false},
 		{ID: "level_5", Name: "Level 5 Hero", Description: "Reach level 5", Icon: "⭐", Unlocked: false},
 		{ID: "level_10", Name: "Elite Achiever", Description: "Reach level 10", Icon: "🏆", Unlocked: false},
+	}
+}
+
+// Initialize reference with common commands
+func initializeReference() []ReferenceItem {
+	return []ReferenceItem{
+		// Git commands
+		{ID: 1, Lang: "git", Command: "git clone", Usage: "git clone <url>", Example: "git clone https://github.com/user/repo.git", Meaning: "clone a repository"},
+		{ID: 2, Lang: "git", Command: "git status", Usage: "git status", Example: "git status", Meaning: "show working tree status"},
+		{ID: 3, Lang: "git", Command: "git add", Usage: "git add <file>", Example: "git add .", Meaning: "stage changes for commit"},
+		{ID: 4, Lang: "git", Command: "git commit", Usage: "git commit -m \"message\"", Example: "git commit -m \"fix bug\"", Meaning: "commit staged changes"},
+		{ID: 5, Lang: "git", Command: "git push", Usage: "git push <remote> <branch>", Example: "git push origin main", Meaning: "push commits to remote"},
+		{ID: 6, Lang: "git", Command: "git pull", Usage: "git pull <remote> <branch>", Example: "git pull origin main", Meaning: "fetch and merge remote changes"},
+		{ID: 7, Lang: "git", Command: "git branch", Usage: "git branch <name>", Example: "git branch feature-x", Meaning: "create or list branches"},
+		{ID: 8, Lang: "git", Command: "git checkout", Usage: "git checkout <branch>", Example: "git checkout develop", Meaning: "switch branches"},
+		{ID: 9, Lang: "git", Command: "git merge", Usage: "git merge <branch>", Example: "git merge feature-x", Meaning: "merge branch into current"},
+		{ID: 10, Lang: "git", Command: "git log", Usage: "git log", Example: "git log --oneline", Meaning: "show commit history"},
+		{ID: 11, Lang: "git", Command: "git diff", Usage: "git diff", Example: "git diff HEAD~1", Meaning: "show changes between commits"},
+		{ID: 12, Lang: "git", Command: "git stash", Usage: "git stash", Example: "git stash pop", Meaning: "temporarily save changes"},
+		{ID: 13, Lang: "git", Command: "git rebase", Usage: "git rebase <branch>", Example: "git rebase main", Meaning: "reapply commits on top of another base"},
+		{ID: 14, Lang: "git", Command: "git reset", Usage: "git reset <file>", Example: "git reset HEAD~1", Meaning: "undo commits or unstage changes"},
+
+		// Docker commands
+		{ID: 15, Lang: "docker", Command: "docker build", Usage: "docker build -t <name> .", Example: "docker build -t myapp .", Meaning: "build image from dockerfile"},
+		{ID: 16, Lang: "docker", Command: "docker run", Usage: "docker run <image>", Example: "docker run -p 8080:80 nginx", Meaning: "run a container from image"},
+		{ID: 17, Lang: "docker", Command: "docker ps", Usage: "docker ps", Example: "docker ps -a", Meaning: "list running containers"},
+		{ID: 18, Lang: "docker", Command: "docker stop", Usage: "docker stop <container>", Example: "docker stop myapp", Meaning: "stop running container"},
+		{ID: 19, Lang: "docker", Command: "docker rm", Usage: "docker rm <container>", Example: "docker rm myapp", Meaning: "remove stopped container"},
+		{ID: 20, Lang: "docker", Command: "docker images", Usage: "docker images", Example: "docker images", Meaning: "list docker images"},
+		{ID: 21, Lang: "docker", Command: "docker exec", Usage: "docker exec -it <container> <cmd>", Example: "docker exec -it myapp bash", Meaning: "execute command in container"},
+		{ID: 22, Lang: "docker", Command: "docker logs", Usage: "docker logs <container>", Example: "docker logs -f myapp", Meaning: "view container logs"},
+		{ID: 23, Lang: "docker", Command: "docker compose up", Usage: "docker compose up", Example: "docker compose up -d", Meaning: "start services from compose file"},
+		{ID: 24, Lang: "docker", Command: "docker compose down", Usage: "docker compose down", Example: "docker compose down", Meaning: "stop and remove containers"},
+
+		// npm commands
+		{ID: 25, Lang: "npm", Command: "npm init", Usage: "npm init", Example: "npm init -y", Meaning: "initialize new package"},
+		{ID: 26, Lang: "npm", Command: "npm install", Usage: "npm install <package>", Example: "npm install express", Meaning: "install package"},
+		{ID: 27, Lang: "npm", Command: "npm run", Usage: "npm run <script>", Example: "npm run dev", Meaning: "run package.json script"},
+		{ID: 28, Lang: "npm", Command: "npm test", Usage: "npm test", Example: "npm test", Meaning: "run tests"},
+		{ID: 29, Lang: "npm", Command: "npm update", Usage: "npm update", Example: "npm update", Meaning: "update packages"},
+		{ID: 30, Lang: "npm", Command: "npm uninstall", Usage: "npm uninstall <package>", Example: "npm uninstall lodash", Meaning: "remove package"},
+
+		// curl commands
+		{ID: 31, Lang: "curl", Command: "curl GET", Usage: "curl <url>", Example: "curl https://api.example.com", Meaning: "make http get request"},
+		{ID: 32, Lang: "curl", Command: "curl POST", Usage: "curl -X POST -d \"data\" <url>", Example: "curl -X POST -d '{\"key\":\"value\"}' api.com", Meaning: "make http post request"},
+		{ID: 33, Lang: "curl", Command: "curl headers", Usage: "curl -H \"Header: value\" <url>", Example: "curl -H \"Authorization: Bearer token\" api.com", Meaning: "send request with headers"},
+		{ID: 34, Lang: "curl", Command: "curl download", Usage: "curl -O <url>", Example: "curl -O https://example.com/file.zip", Meaning: "download file"},
+
+		// Linux/bash commands
+		{ID: 35, Lang: "bash", Command: "grep", Usage: "grep <pattern> <file>", Example: "grep \"error\" log.txt", Meaning: "search for pattern in file"},
+		{ID: 36, Lang: "bash", Command: "find", Usage: "find <path> -name <pattern>", Example: "find . -name \"*.js\"", Meaning: "find files by pattern"},
+		{ID: 37, Lang: "bash", Command: "chmod", Usage: "chmod <permissions> <file>", Example: "chmod +x script.sh", Meaning: "change file permissions"},
+		{ID: 38, Lang: "bash", Command: "chown", Usage: "chown <user>:<group> <file>", Example: "chown user:group file.txt", Meaning: "change file ownership"},
+		{ID: 39, Lang: "bash", Command: "tar", Usage: "tar -czf <archive> <files>", Example: "tar -czf backup.tar.gz folder/", Meaning: "create compressed archive"},
+		{ID: 40, Lang: "bash", Command: "untar", Usage: "tar -xzf <archive>", Example: "tar -xzf backup.tar.gz", Meaning: "extract compressed archive"},
+		{ID: 41, Lang: "bash", Command: "ssh", Usage: "ssh <user>@<host>", Example: "ssh user@192.168.1.1", Meaning: "connect to remote server"},
+		{ID: 42, Lang: "bash", Command: "scp", Usage: "scp <source> <user>@<host>:<dest>", Example: "scp file.txt user@server:/path/", Meaning: "copy files over ssh"},
+		{ID: 43, Lang: "bash", Command: "ps", Usage: "ps aux", Example: "ps aux | grep node", Meaning: "list running processes"},
+		{ID: 44, Lang: "bash", Command: "kill", Usage: "kill <pid>", Example: "kill -9 1234", Meaning: "terminate process"},
+		{ID: 45, Lang: "bash", Command: "systemctl", Usage: "systemctl <action> <service>", Example: "systemctl restart nginx", Meaning: "manage system services"},
+		{ID: 46, Lang: "bash", Command: "tail", Usage: "tail -f <file>", Example: "tail -f /var/log/syslog", Meaning: "follow file updates"},
+		{ID: 47, Lang: "bash", Command: "sed", Usage: "sed 's/old/new/g' <file>", Example: "sed 's/foo/bar/g' file.txt", Meaning: "stream editor for text"},
+		{ID: 48, Lang: "bash", Command: "awk", Usage: "awk '{print $1}' <file>", Example: "awk '{print $2}' data.txt", Meaning: "pattern scanning and processing"},
+
+		// Go commands
+		{ID: 49, Lang: "go", Command: "go run", Usage: "go run <file>", Example: "go run main.go", Meaning: "compile and run go program"},
+		{ID: 50, Lang: "go", Command: "go build", Usage: "go build", Example: "go build -o app", Meaning: "compile go program"},
+		{ID: 51, Lang: "go", Command: "go test", Usage: "go test", Example: "go test ./...", Meaning: "run tests"},
+		{ID: 52, Lang: "go", Command: "go mod init", Usage: "go mod init <module>", Example: "go mod init github.com/user/repo", Meaning: "initialize go module"},
+		{ID: 53, Lang: "go", Command: "go get", Usage: "go get <package>", Example: "go get github.com/pkg/errors", Meaning: "download and install package"},
 	}
 }
 
@@ -689,9 +762,16 @@ func initialModel() model {
 		data:          loadData(),
 		statusColor:   "86",
 		lastTick:      time.Now(),
-		sortColumn:    [4]int{1, 1, 0, 0},    // Default sort: Priority for Dailies/Rolling, default for others
-		sortAscending: [4]bool{true, true, true, true}, // All ascending by default
+		sortColumn:    [4]int{1, 1, 0, 0},                  // Default sort: Priority for Dailies/Rolling, default for others
+		sortAscending: [4]bool{true, true, true, true},     // All ascending by default
+		searchActive:  false,
+		filteredRef:   []ReferenceItem{},
 	}
+
+	// Initialize search input
+	m.searchInput = textinput.New()
+	m.searchInput.Placeholder = "Search commands..."
+	m.searchInput.CharLimit = 50
 
 	// Check for daily task reset on startup
 	if resetDailyTasks(&m.data) {
@@ -757,7 +837,7 @@ func (m *model) setupTables() {
 		table.WithHeight(tableHeight),
 	)
 
-	// Tab 5: Glossary
+	// Tab 5: Reference
 	m.tables[3] = table.New(
 		table.WithColumns([]table.Column{
 			{Title: "Lang", Width: 10},
@@ -766,7 +846,7 @@ func (m *model) setupTables() {
 			{Title: "Example", Width: 30},
 			{Title: "Meaning", Width: 30},
 		}),
-		table.WithRows(m.glossaryRows()),
+		table.WithRows(m.referenceRows()),
 		table.WithFocused(true),
 		table.WithHeight(tableHeight),
 	)
@@ -920,10 +1000,37 @@ func (m *model) reminderRows() []table.Row {
 	return rows
 }
 
-func (m *model) glossaryRows() []table.Row {
+func (m *model) filterReference() {
+	query := strings.ToLower(m.searchInput.Value())
+	if query == "" {
+		m.filteredRef = m.data.Reference
+		return
+	}
+
+	m.filteredRef = []ReferenceItem{}
+	for _, item := range m.data.Reference {
+		// Search in all fields
+		if strings.Contains(strings.ToLower(item.Lang), query) ||
+			strings.Contains(strings.ToLower(item.Command), query) ||
+			strings.Contains(strings.ToLower(item.Usage), query) ||
+			strings.Contains(strings.ToLower(item.Example), query) ||
+			strings.Contains(strings.ToLower(item.Meaning), query) {
+			m.filteredRef = append(m.filteredRef, item)
+		}
+	}
+}
+
+func (m *model) referenceRows() []table.Row {
 	rows := []table.Row{}
-	sortGlossary(m.data.Glossary, m.sortColumn[3], m.sortAscending[3])
-	for _, item := range m.data.Glossary {
+
+	// Use filtered results if search is active
+	itemsToShow := m.data.Reference
+	if m.searchActive && m.searchInput.Value() != "" {
+		itemsToShow = m.filteredRef
+	}
+
+	sortReference(itemsToShow, m.sortColumn[3], m.sortAscending[3])
+	for _, item := range itemsToShow {
 		rows = append(rows, table.Row{
 			normalizeText(item.Lang),
 			normalizeText(item.Command),
@@ -946,7 +1053,7 @@ func (m *model) cycleSortColumn() {
 	case 3: // Rolling
 		tableIdx = 1
 		maxColumns = 4 // Task, Priority, Category, Deadline
-	case 5: // Glossary
+	case 5: // Reference
 		tableIdx = 3
 		maxColumns = 2 // Lang, Command
 	default:
@@ -1177,6 +1284,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleEditingKeys(msg)
 		}
 
+		// Handle search mode for Reference tab
+		if m.searchActive && m.activeTab == 5 {
+			switch msg.String() {
+			case "esc":
+				m.searchActive = false
+				m.searchInput.Blur()
+				m.searchInput.SetValue("")
+				m.tables[3].SetRows(m.referenceRows())
+				return m, nil
+			case "enter":
+				m.searchActive = false
+				m.searchInput.Blur()
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.searchInput, cmd = m.searchInput.Update(msg)
+				m.filterReference()
+				m.tables[3].SetRows(m.referenceRows())
+				return m, cmd
+			}
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -1242,7 +1371,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeTab == 4 {
 				m.toggleReminderStatus("start")
 			} else if m.activeTab == 2 || m.activeTab == 3 || m.activeTab == 5 {
-				// Cycle sort for Dailies (tab 2), Rolling (tab 3), Glossary (tab 5)
+				// Cycle sort for Dailies (tab 2), Rolling (tab 3), Reference (tab 5)
 				m.cycleSortColumn()
 			}
 		case "p":
@@ -1252,6 +1381,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			if m.activeTab == 4 {
 				m.toggleReminderStatus("reset")
+			}
+		case "/":
+			// Activate search for Reference tab
+			if m.activeTab == 5 {
+				m.searchActive = true
+				m.searchInput.Focus()
+				return m, nil
 			}
 		case " ", "enter":
 			// Toggle completion for dailies
@@ -1349,9 +1485,9 @@ func (m *model) startEditing() {
 			m.inputs[2] = textinput.New()
 			m.inputs[2].SetValue(reminder.AlarmOrCountdown)
 		}
-	case 5: // Glossary
-		if m.editingRow < len(m.data.Glossary) {
-			item := m.data.Glossary[m.editingRow]
+	case 5: // Reference
+		if m.editingRow < len(m.data.Reference) {
+			item := m.data.Reference[m.editingRow]
 			m.inputs = make([]textinput.Model, 5)
 			m.inputs[0] = textinput.New()
 			m.inputs[0].SetValue(item.Lang)
@@ -1393,7 +1529,7 @@ func (m *model) addNew() {
 			m.inputs[i] = textinput.New()
 		}
 		m.inputs[0].Focus()
-	case 5: // Glossary
+	case 5: // Reference
 		m.inputs = make([]textinput.Model, 5)
 		for i := range m.inputs {
 			m.inputs[i] = textinput.New()
@@ -1481,25 +1617,25 @@ func (m *model) saveEdit() {
 			}
 		}
 		m.tables[2].SetRows(m.reminderRows())
-	case 5: // Glossary
+	case 5: // Reference
 		if m.editingRow == -1 {
-			newItem := GlossaryItem{
-				ID:      len(m.data.Glossary) + 1,
+			newItem := ReferenceItem{
+				ID:      len(m.data.Reference) + 1,
 				Lang:    normalizeText(m.inputs[0].Value()),
 				Command: normalizeText(m.inputs[1].Value()),
 				Usage:   normalizeText(m.inputs[2].Value()),
 				Example: normalizeText(m.inputs[3].Value()),
 				Meaning: normalizeText(m.inputs[4].Value()),
 			}
-			m.data.Glossary = append(m.data.Glossary, newItem)
+			m.data.Reference = append(m.data.Reference, newItem)
 		} else {
-			m.data.Glossary[m.editingRow].Lang = normalizeText(m.inputs[0].Value())
-			m.data.Glossary[m.editingRow].Command = normalizeText(m.inputs[1].Value())
-			m.data.Glossary[m.editingRow].Usage = normalizeText(m.inputs[2].Value())
-			m.data.Glossary[m.editingRow].Example = normalizeText(m.inputs[3].Value())
-			m.data.Glossary[m.editingRow].Meaning = normalizeText(m.inputs[4].Value())
+			m.data.Reference[m.editingRow].Lang = normalizeText(m.inputs[0].Value())
+			m.data.Reference[m.editingRow].Command = normalizeText(m.inputs[1].Value())
+			m.data.Reference[m.editingRow].Usage = normalizeText(m.inputs[2].Value())
+			m.data.Reference[m.editingRow].Example = normalizeText(m.inputs[3].Value())
+			m.data.Reference[m.editingRow].Meaning = normalizeText(m.inputs[4].Value())
 		}
-		m.tables[3].SetRows(m.glossaryRows())
+		m.tables[3].SetRows(m.referenceRows())
 	}
 
 	saveData(m.data)
@@ -1522,9 +1658,9 @@ func (m *model) confirmDeleteSelected() {
 		if cursor < len(m.data.Reminders) {
 			itemName = m.data.Reminders[cursor].Reminder
 		}
-	case 5: // Glossary
-		if cursor < len(m.data.Glossary) {
-			itemName = m.data.Glossary[cursor].Command
+	case 5: // Reference
+		if cursor < len(m.data.Reference) {
+			itemName = m.data.Reference[cursor].Command
 		}
 	}
 
@@ -1565,11 +1701,11 @@ func (m *model) deleteSelected() {
 			m.statusColor = "196"
 			m.statusExpiry = time.Now().Add(3 * time.Second)
 		}
-	case 5: // Glossary
-		if cursor < len(m.data.Glossary) {
-			itemName := m.data.Glossary[cursor].Command
-			m.data.Glossary = append(m.data.Glossary[:cursor], m.data.Glossary[cursor+1:]...)
-			m.tables[3].SetRows(m.glossaryRows())
+	case 5: // Reference
+		if cursor < len(m.data.Reference) {
+			itemName := m.data.Reference[cursor].Command
+			m.data.Reference = append(m.data.Reference[:cursor], m.data.Reference[cursor+1:]...)
+			m.tables[3].SetRows(m.referenceRows())
 			m.statusMsg = fmt.Sprintf("🗑️ Deleted: %s", itemName)
 			m.statusColor = "196"
 			m.statusExpiry = time.Now().Add(3 * time.Second)
@@ -1589,7 +1725,7 @@ func (m model) View() string {
 
 	// Tab headers
 	tabs := []string{}
-	tabNames := []string{"[1] Home", "[2] Dailies", "[3] Rolling", "[4] Reminders", "[5] Glossary"}
+	tabNames := []string{"[1] Home", "[2] Dailies", "[3] Rolling", "[4] Reminders", "[5] Reference"}
 
 	for i, name := range tabNames {
 		if i+1 == m.activeTab {
@@ -1622,7 +1758,7 @@ func (m model) View() string {
 		summary += fmt.Sprintf("  Daily Tasks: %d total, %d completed today\n", totalDailies, completedDailies)
 		summary += fmt.Sprintf("  Rolling Todos: %d items\n", len(m.data.RollingTodos))
 		summary += fmt.Sprintf("  Reminders: %d active\n", len(m.data.Reminders))
-		summary += fmt.Sprintf("  Glossary: %d entries\n", len(m.data.Glossary))
+		summary += fmt.Sprintf("  Reference: %d entries\n", len(m.data.Reference))
 		summary += fmt.Sprintf("  Total tasks completed all-time: %d\n", m.data.Gamification.TasksCompleted)
 
 		// Achievements
@@ -1740,8 +1876,29 @@ func (m model) View() string {
 		}
 
 		content = summary
+	} else if m.activeTab == 5 {
+		// Reference tab with search
+		var searchBox string
+		if m.searchActive {
+			searchBox = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86")).
+				Render("🔍 Search: ") + m.searchInput.View()
+		} else {
+			searchBox = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")).
+				Render("Press / to search")
+		}
+
+		resultCount := ""
+		if m.searchInput.Value() != "" {
+			resultCount = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86")).
+				Render(fmt.Sprintf(" (%d results)", len(m.filteredRef)))
+		}
+
+		content = searchBox + resultCount + "\n\n" + m.tables[3].View()
 	} else {
-		// Table content
+		// Table content for other tabs
 		content = m.tables[m.activeTab-2].View()
 	}
 
@@ -1758,7 +1915,11 @@ func (m model) View() string {
 			commands = append(commands, keyStyle.Render("space/enter")+": "+actionStyle.Render("toggle done"))
 			commands = append(commands, keyStyle.Render("s")+": "+actionStyle.Render("sort"))
 		}
-		if m.activeTab == 3 || m.activeTab == 5 {
+		if m.activeTab == 3 {
+			commands = append(commands, keyStyle.Render("s")+": "+actionStyle.Render("sort"))
+		}
+		if m.activeTab == 5 {
+			commands = append(commands, keyStyle.Render("/")+": "+actionStyle.Render("search"))
 			commands = append(commands, keyStyle.Render("s")+": "+actionStyle.Render("sort"))
 		}
 		if m.activeTab == 4 {
@@ -1804,7 +1965,7 @@ func (m model) editView() string {
 		labels = []string{"Task:", "Priority:", "Category:", "Deadline:"}
 	case 4: // Reminders
 		labels = []string{"Reminder:", "Note:", "Alarm/Countdown:"}
-	case 5: // Glossary
+	case 5: // Reference
 		labels = []string{"Lang:", "Command:", "Usage:", "Example:", "Meaning:"}
 	}
 
@@ -1842,7 +2003,7 @@ func loadData() AppData {
 		Dailies:      []Daily{},
 		RollingTodos: []RollingTodo{},
 		Reminders:    []Reminder{},
-		Glossary:     []GlossaryItem{},
+		Reference:    initializeReference(),
 		Gamification: Gamification{
 			TotalPoints:      0,
 			Level:            1,
