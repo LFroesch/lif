@@ -50,19 +50,13 @@ A gamified terminal user interface (TUI) application for managing daily tasks, r
 
 ## Installation
 
-### Prerequisites
-- Go 1.23.3 or later
-
-### Build from Source
 ```bash
-git clone <repository-url>
-cd lif
-go build -o lif main.go
+go install github.com/LFroesch/lif@latest
 ```
 
-### Run
+Make sure `$GOPATH/bin` (usually `~/go/bin`) is in your PATH:
 ```bash
-./lif
+export PATH="$HOME/go/bin:$PATH"
 ```
 
 ## Usage
