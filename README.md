@@ -1,22 +1,8 @@
 # lif - Lucas is Forgetful
 
-A gamified terminal user interface (TUI) application for managing daily tasks, reminders, rolling todos, and a command glossary. Perfect for forgetful minds who want to build consistent habits through daily tasks while earning points, unlocking achievements, and maintaining streaks!
+A gamified terminal user interface (TUI) application for managing daily tasks, reminders, rolling todos, and a command glossary. Perfect for forgetful minds who want to build consistent habits through daily tasks and maintaining streaks!
 
 ## Features
-
-### 🎮 Gamification System
-- **Points & Levels**: Earn points and level up!
-  - Daily tasks: 10 points each
-  - Daily login bonus: 5 points
-  - Level up every 100 points!
-- **Streaks**: Track your daily login streak
-- **Achievements**: Unlock 11 different achievements
-  - First Steps, Consistent Checker (7-day login)
-  - On Fire! (3-day task streak), Week Warrior (7-day)
-  - Fortnight Force (14-day), Monthly Master (30-day)
-  - Taskmaster (10 tasks), Productivity Pro (50), Century Club (100)
-  - Level 5 Hero, Elite Achiever (Level 10)
-- **Progress Dashboard**: See your stats, level, points, and streaks at a glance
 
 ### 📋 Daily Tasks (Your Habits!)
 - Create recurring daily tasks that reset at 3 AM
@@ -25,7 +11,6 @@ A gamified terminal user interface (TUI) application for managing daily tasks, r
 - Visual streak indicators with 🔥
 - Organize by priority (HIGH/MEDIUM/LOW) and category
 - Set deadlines and monitor progress
-- Earn 10 points for completing tasks!
 
 ### 🔄 Rolling Todos
 - Persistent todo items that don't reset daily
@@ -50,20 +35,47 @@ A gamified terminal user interface (TUI) application for managing daily tasks, r
 
 ## Installation
 
+### Quick Install (Recommended)
+
+**One-liner install script** - automatically detects your OS and architecture:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/LFroesch/lif/main/install.sh | sh
+```
+
+This downloads the latest pre-compiled binary and installs it to your PATH. No Go required!
+
+### Pre-compiled Binaries
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/LFroesch/lif/releases):
+
+- **Linux** (amd64, arm64)
+- **macOS** (Intel, Apple Silicon)
+- **Windows** (amd64)
+
+Extract and add to your PATH.
+
+### Build from Source
+
+If you have Go installed:
+
 ```bash
 go install github.com/LFroesch/lif@latest
 ```
 
 Make sure `$GOPATH/bin` (usually `~/go/bin`) is in your PATH:
 ```bash
-export PATH="$HOME/go/bin:$PATH"
+echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ## Usage
 
+**Press `?` at any time to view the in-app help screen with all keyboard shortcuts!**
+
 ### Navigation
 - **Numbers 1-5**: Switch between tabs
-  - 1: Home (Dashboard with gamification stats & streaks)
+  - 1: Home (Dashboard with stats & streaks)
   - 2: Daily Tasks (with streak tracking!)
   - 3: Rolling Todos
   - 4: Reminders
@@ -80,18 +92,15 @@ export PATH="$HOME/go/bin:$PATH"
 ### Tab-Specific Controls
 
 #### Home (Tab 1)
-- View your gamification stats:
-  - Current level, total points, and login streak
+- View your stats:
   - Daily activity summary
   - Tasks completed
-  - Unlocked achievements
-  - Active task streaks
+- View your rolling todo list
 
 #### Daily Tasks (Tab 2)
 - **Space** or **Enter**: Toggle task completion
 - Tasks automatically reset to incomplete at 3 AM daily
 - Complete tasks daily to build streaks!
-- Earn 10 points per task completed
 - View current streak and best streak for each task
 
 #### Reminders (Tab 4)
@@ -105,6 +114,7 @@ export PATH="$HOME/go/bin:$PATH"
 - **s**: Sort by language or command
 - Search across all fields (language, command, usage, example, meaning)
 - Pre-populated with common git, docker, npm, curl, bash, and Go commands
+- Add more to customize your quick reference glossary!
 
 ### Time Formats
 
@@ -154,6 +164,7 @@ Configuration is automatically saved to:
 | `1-5` | Switch tabs | Global |
 | `←/→` | Navigate tabs | Global |
 | `↑/↓` or `j/k` | Navigate items | Tables |
+| `?` | Toggle help screen | Global |
 | `e` | Edit selected | Tables |
 | `n/a` | Add new item | Tables |
 | `d` | Delete item | Tables |
