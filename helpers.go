@@ -281,7 +281,20 @@ func sendNotification(title, message string) {
 	// Send system notification
 	switch runtime.GOOS {
 	case "linux":
-		exec.Command("notify-send", title, message).Run()
+		if isWSL() {
+			// WSL2: use PowerShell toast notification via Windows interop
+			script := fmt.Sprintf(
+				`[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; `+
+					`$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(0); `+
+					`$text = $template.GetElementsByTagName('text'); `+
+					`$text.Item(0).AppendChild($template.CreateTextNode('%s: %s')) > $null; `+
+					`$toast = [Windows.UI.Notifications.ToastNotification]::new($template); `+
+					`[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('lif').Show($toast)`,
+				title, message)
+			exec.Command("powershell.exe", "-Command", script).Run()
+		} else {
+			exec.Command("notify-send", title, message).Run()
+		}
 	case "darwin":
 		exec.Command("osascript", "-e", fmt.Sprintf(`display notification "%s" with title "%s"`, message, title)).Run()
 	case "windows":
