@@ -1,6 +1,12 @@
+BIN := lif
+BUILD_TARGET := .
+INSTALL_DIR ?= $(HOME)/.local/bin
+
 build:
-	go build -o lif
-cp:
-	cp lif ~/.local/bin/
-	
-install: build cp
+	go build -o $(BIN) $(BUILD_TARGET)
+
+install: build
+	mkdir -p $(INSTALL_DIR)
+	install -m 0755 $(BIN) $(INSTALL_DIR)/$(BIN)
+
+.PHONY: build install

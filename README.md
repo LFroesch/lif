@@ -2,6 +2,33 @@
 
 Gamified TUI task manager and command reference. Daily habits with streak tracking, rolling todos, countdown reminders, and a searchable command glossary. "Lucas is Forgetful." Built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+## Quick Install
+
+Recommended (installs to `~/.local/bin`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LFroesch/lif/main/install.sh | bash
+```
+
+Or download a binary from [GitHub Releases](https://github.com/LFroesch/lif/releases).
+
+Or install with Go:
+
+```bash
+go install github.com/LFroesch/lif@latest
+```
+
+Or build from source:
+
+```bash
+make install
+```
+
+Command:
+
+```bash
+lif
+```
 ## Install
 
 ```bash
