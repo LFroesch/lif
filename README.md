@@ -31,24 +31,6 @@ Command:
 ```bash
 lif
 ```
-## Install
-
-```bash
-go install github.com/LFroesch/lif@latest
-```
-
-Or use the install script:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/LFroesch/lif/main/install.sh | sh
-```
-
-Or build from source:
-
-```bash
-make install
-```
-
 ## Usage
 
 ```bash
