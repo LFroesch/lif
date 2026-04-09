@@ -4,6 +4,8 @@ Gamified TUI task manager and command reference. Daily habits with streak tracki
 
 ## Quick Install
 
+Supported platforms: Linux and macOS. On Windows, use WSL.
+
 Recommended (installs to `~/.local/bin`):
 
 ```bash
