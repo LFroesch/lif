@@ -31,18 +31,15 @@ Command:
 ```bash
 lif
 ```
-## Usage
-
-```bash
-lif
-```
 
 ## Tabs
 
 ### 1. Home
+
 Dashboard with daily activity summary and stats.
 
 ### 2. Daily Tasks
+
 Recurring tasks that reset at 3 AM. Build streaks by completing them daily.
 
 | Key | Action |
@@ -55,9 +52,11 @@ Recurring tasks that reset at 3 AM. Build streaks by completing them daily.
 Each task tracks current streak and best streak.
 
 ### 3. Rolling Todos
+
 Persistent todos that don't reset. Priority-based sorting, category grouping, deadline tracking.
 
 ### 4. Reminders
+
 Countdown timers and alarms with system notifications.
 
 | Key | Action |
@@ -69,6 +68,7 @@ Countdown timers and alarms with system notifications.
 **Time formats:** `30s`, `5m`, `2h`, `1d`, `1w` (countdown) or `9:30AM`, `15:30` (alarm).
 
 ### 5. Reference
+
 Searchable command glossary with 50+ pre-populated commands (git, docker, npm, curl, bash, Go).
 
 | Key | Action |
